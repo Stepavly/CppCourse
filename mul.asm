@@ -4,13 +4,13 @@
 		        %define 		len 128
 _start:
 
-                sub             rsp, 3 * len * 8
-                lea             rdi, [rsp + 2 * len * 8]
+                sub             rsp, 2 * len * 8
+                lea             rdi, [rsp + len * 8]
                 mov             rcx, len
                 call            read_long
                 mov             rdi, rsp
                 call            read_long
-                lea             rsi, [rsp + 2 * len * 8]
+                lea             rsi, [rsp + len * 8]
                 call            mul_long_long
 
                 call            write_long
@@ -33,9 +33,9 @@ mul_long_long:
 
                 sub             rsp, 2 * len * 8
                 mov             r9, rsp
-                ;r9 -- answer adress
-                ;r10 -- index 'i' that iterates through 0..rcx
-                ;r11 -- index 'j' that iterates through 0..rcx
+                ;r9  -- answer adress
+                ;r10 -- index 'i' that iterates through [0; rcx - 1]
+                ;r11 -- index 'j' that iterates through [0; rcx - 1]
 
                 push            rdi
                 xor             r10, r10
@@ -45,12 +45,20 @@ mul_long_long:
                 push            rsi
 .j_loop:
                 mov             rax, [rsi]
+                xor             rdx, rdx
                 mul             r12
+                ;lower part of a[i] * b[j] in rax, upper part in rdx
 
                 push            rdi
-                lea             rdi, [r9 + r10]
-                lea             rdi, [rdi + r11]
-                call            add_long_short ;c[i + j] += a[i] * b[j]
+
+                lea             rdi, [r9 + r10 * 8]
+                lea             rdi, [rdi + r11 * 8]
+                call            add_long_short ;c[i + j] += a[i] * b[j] (lower part)
+
+                lea             rdi, [rdi + 8]
+                mov             rax, rdx
+                call            add_long_short ;c[i + j] += a[i] * b[j] (upper part)
+
                 pop             rdi
 
                 lea             r11, [r11 + 1]
@@ -65,6 +73,7 @@ mul_long_long:
                 jnz             .i_loop
 ;i loop ended
                 pop             rdi
+
 .copy_loop:
                 dec             rcx
                 lea             r10, [r9 + rcx]
