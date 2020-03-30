@@ -4,13 +4,13 @@
 		        %define 		len 128
 _start:
 
-                sub             rsp, 2 * len * 8
-                lea             rdi, [rsp + len * 8]
+                sub             rsp, 3 * len * 8
+                lea             rdi, [rsp + 2 * len * 8]
                 mov             rcx, len
                 call            read_long
                 mov             rdi, rsp
                 call            read_long
-                lea             rsi, [rsp + len * 8]
+                lea             rsi, [rsp + 2 * len * 8]
                 call            mul_long_long
 
                 call            write_long
@@ -72,7 +72,9 @@ mul_long_long:
                 pop             rsi
                 jnz             .i_loop
 ;i loop ended
+
                 pop             rdi
+                lea             rcx, [rcx + rcx] ;new length is |a| + |b|
 
 .copy_loop:
                 dec             rcx
