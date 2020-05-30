@@ -73,7 +73,7 @@ big_integer::big_integer(const std::string &str) {
 	}
 
 	if (a == 0) {
-		sign = 0;
+		sign = true;
 	}
 
 	*this = sign ? a : -a;
@@ -270,19 +270,6 @@ big_integer &big_integer::operator/=(big_integer const &rhs) {
 			uint32_t m = l + (r - l) / 2;
 			big_integer temp = abs(rhs * m);
 
-//			for (auto x : cur.dig) {
-//				std::cout << x << " ";
-//			}
-//
-//			std::cout << std::endl;
-//
-//			for (auto x : temp.dig) {
-//				std::cout << x << " ";
-//			}
-//
-//			std::cout << std::endl;
-//			std::cout << std::endl;
-
 			if (cur >= abs(rhs * m)) {
 				l = m;
 			} else {
@@ -327,51 +314,47 @@ big_integer operator%(big_integer a, const big_integer &b) {
 	return a %= b;
 }
 
-big_integer &big_integer::operator&=(big_integer const &rhs) {
-	for (size_t i = 0; i < dig.size(); i++) {
-		dig[i] = (sign ? +1 : -1) * dig[i] & (i < rhs.dig.size() ? (rhs.sign ? +1 : -1) * rhs.dig[i] : 0);
-	}
-	normalize();
-	return *this;
-}
-big_integer &big_integer::operator|=(big_integer const &rhs) {
-	if (dig.size() < rhs.dig.size()) {
-		dig.resize(rhs.dig.size());
-	}
-	for (size_t i = 0; i < dig.size(); i++) {
-		uint32_t a = (sign ? dig[i] : ~dig[i] + 1);
-		uint32_t b = (i < rhs.dig.size() ? (rhs.sign ? rhs.dig[i] : ~rhs.dig[i] + 1) : 0);
+template<class BitFunction>
+std::vector<uint32_t> bit_function_applier(std::vector<uint32_t> const &lhs,
+																					 bool lhs_sign,
+																					 std::vector<uint32_t> const &rhs,
+																					 bool rhs_sign,
+																					 BitFunction bit_function) {
+	std::vector<uint32_t> result(std::max(lhs.size(), rhs.size()));
 
-		uint32_t c = a | b;
+	for (size_t i = 0; i < lhs.size(); i++) {
+		uint32_t a = (i < lhs.size() ? (lhs_sign ? lhs[i] : -lhs[i]) : 0);
+		uint32_t b = (i < rhs.size() ? (rhs_sign ? rhs[i] : -rhs[i]) : 0);
+		uint32_t c = bit_function(a, b);
 
-		if (sign != rhs.sign) {
+		if (lhs_sign != rhs_sign) {
 			c = ~c + 1;
 		}
 
-		dig[i] = c;
+		result[i] = c;
 	}
-	sign = sign == rhs.sign;
+
+	return result;
+}
+
+big_integer &big_integer::operator&=(big_integer const &rhs) {
+	*this = big_integer(sign == rhs.sign,
+											bit_function_applier(dig, sign, rhs.dig, rhs.sign, std::bit_and<uint32_t>()));
+
+	normalize();
+	return *this;
+}
+
+big_integer &big_integer::operator|=(big_integer const &rhs) {
+	*this = big_integer(sign == rhs.sign,
+											bit_function_applier(dig, sign, rhs.dig, rhs.sign, std::bit_or<uint32_t>()));
 
 	normalize();
 	return *this;
 }
 big_integer &big_integer::operator^=(big_integer const &rhs) {
-	if (dig.size() < rhs.dig.size()) {
-		dig.resize(rhs.dig.size());
-	}
-	for (size_t i = 0; i < dig.size(); i++) {
-		uint32_t a = (sign ? dig[i] : ~dig[i] + 1);
-		uint32_t b = (i < rhs.dig.size() ? (rhs.sign ? rhs.dig[i] : ~rhs.dig[i] + 1) : 0);
-
-		uint32_t c = a ^b;
-
-		if (sign != rhs.sign) {
-			c = ~c + 1;
-		}
-
-		dig[i] = c;
-	}
-	sign = sign == rhs.sign;
+	*this = big_integer(sign == rhs.sign,
+											bit_function_applier(dig, sign, rhs.dig, rhs.sign, std::bit_xor<uint32_t>()));
 
 	normalize();
 	return *this;
@@ -428,7 +411,7 @@ big_integer &big_integer::operator--() {
 }
 big_integer big_integer::operator--(int) {
 	big_integer copy(*this);
-	++*this;
+	--*this;
 	return copy;
 }
 
